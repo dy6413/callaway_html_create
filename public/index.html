@@ -6,33 +6,114 @@
   <style>
     table.GeneratedTable { border-collapse: collapse; width: 100%; margin-top: 20px; }
     table.GeneratedTable th, table.GeneratedTable td { border: 1px solid #000; padding: 5px; text-align: center; }
+    #partContainer label { margin-right: 10px; }
   </style>
 </head>
 <body>
   <h1>Style HTML 생성기</h1>
+
+  <!-- Style 입력 폼 -->
   <form id="genForm">
-    <label>Style: <input type="text" name="style" required></label><br><br>
-    <label>Parts (쉼표 구분): <input type="text" name="parts" required></label><br><br>
-    <button type="submit">생성</button>
+    <label>Style (아티클 번호): <input type="text" name="style" required></label>
+    <button type="submit">조회</button>
   </form>
-  <div id="result"></div>
+
+  <!-- Part 선택 영역 -->
+  <div id="partContainer" style="margin-top: 10px;">
+    <!-- 체크박스로 Part 목록이 동적으로 생성됩니다 -->
+  </div>
+
+  <!-- HTML 결과 표시 -->
+  <div id="result" style="margin-top: 20px;"></div>
 
   <script>
     const form = document.getElementById('genForm');
+    const partContainer = document.getElementById('partContainer');
     const resultDiv = document.getElementById('result');
 
+    let currentStyle = '';
+    let availableParts = [];
+
+    // 1️⃣ Style 입력 후 Part 목록 가져오기
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const formData = new FormData(form);
-      const style = formData.get('style');
-      const parts = formData.get('parts').split(',').map(p=>p.trim());
-      const res = await fetch('/generate', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({style, parts})
-      });
-      const html = await res.text();
-      resultDiv.innerHTML = html;
+      const style = formData.get('style').trim();
+      if (!style) return;
+
+      currentStyle = style;
+      resultDiv.innerHTML = '';
+
+      // 서버에 Style 요청 → Part 목록 가져오기
+      try {
+        const res = await fetch('/api/getParts', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ style })
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          alert('오류: ' + text);
+          return;
+        }
+        const data = await res.json();
+        availableParts = data.parts;
+
+        // Part 체크박스 생성
+        partContainer.innerHTML = '';
+        if (availableParts.length === 0) {
+          partContainer.innerHTML = '<p>선택 가능한 Part가 없습니다.</p>';
+          return;
+        }
+
+        const info = document.createElement('p');
+        info.textContent = 'Part 선택 (체크박스에서 선택, 비워두면 전체 선택)';
+        partContainer.appendChild(info);
+
+        availableParts.forEach(part => {
+          const label = document.createElement('label');
+          label.innerHTML = `<input type="checkbox" value="${part}" checked> ${part}`;
+          partContainer.appendChild(label);
+        });
+
+        // HTML 생성 버튼 추가
+        let generateBtn = document.getElementById('generateBtn');
+        if (!generateBtn) {
+          generateBtn = document.createElement('button');
+          generateBtn.id = 'generateBtn';
+          generateBtn.textContent = 'HTML 생성';
+          generateBtn.style.display = 'block';
+          generateBtn.style.marginTop = '10px';
+          partContainer.appendChild(generateBtn);
+
+          generateBtn.addEventListener('click', async () => {
+            let selectedParts = Array.from(partContainer.querySelectorAll('input[type=checkbox]:checked'))
+                                     .map(cb => cb.value);
+            if (selectedParts.length === 0) selectedParts = availableParts;
+
+            // HTML 생성 요청
+            try {
+              const htmlRes = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ style: currentStyle, parts: selectedParts })
+              });
+              if (!htmlRes.ok) {
+                const text = await htmlRes.text();
+                alert('오류: ' + text);
+                return;
+              }
+              const html = await htmlRes.text();
+              resultDiv.innerHTML = html;
+            } catch(err) {
+              alert('생성 중 오류: ' + err);
+            }
+          });
+        }
+
+      } catch(err) {
+        alert('Part 목록 요청 중 오류: ' + err);
+      }
     });
   </script>
 </body>
