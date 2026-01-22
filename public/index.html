@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>HTML Generator</title>
+  <style>
+    table.GeneratedTable { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    table.GeneratedTable th, table.GeneratedTable td { border: 1px solid #000; padding: 5px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Style HTML 생성기</h1>
+  <form id="genForm">
+    <label>Style: <input type="text" name="style" required></label><br><br>
+    <label>Parts (쉼표 구분): <input type="text" name="parts" required></label><br><br>
+    <button type="submit">생성</button>
+  </form>
+  <div id="result"></div>
+
+  <script>
+    const form = document.getElementById('genForm');
+    const resultDiv = document.getElementById('result');
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const style = formData.get('style');
+      const parts = formData.get('parts').split(',').map(p=>p.trim());
+      const res = await fetch('/generate', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({style, parts})
+      });
+      const html = await res.text();
+      resultDiv.innerHTML = html;
+    });
+  </script>
+</body>
+</html>
